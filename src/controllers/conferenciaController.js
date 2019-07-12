@@ -3,7 +3,7 @@
 var Charla = require('../models/conferencia');
 var User = require('../models/user');
 const nodemailer = require('nodemailer');
-
+var inlineBase64 = require('nodemailer-plugin-inline-base64');
 function registrarCharla(req, res) {
     var charla = new Charla();
     var params = req.body;
@@ -135,7 +135,7 @@ else
 console.log("posi"+posicion+"Este texto habla sobre un gato");
 
 var modificado = recorrer.slice(posicion+5, posicionFinal-1)
-console.log("Comienza:::"+modificado+":::::::::FUNCIONA MIERDA")
+console.log("Comienza:::"+modificado+":::::::::termina")
 
 
     // console.log("CONTROLLER"+docs)
@@ -179,7 +179,7 @@ console.log("Comienza:::"+modificado+":::::::::FUNCIONA MIERDA")
                 subject: `Confirmacion`,
                 html: `
                 ${params.variable}
-                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIQAAACECAYAAABRRIOnAAAGUElEQVR4Xu2d27LaMBAE4f8/mrykKrFPQntqJNuCzqtuq9nWrGwI5/l6vV4P/6nAbwWeAiELfysgEPKwUUAgBEIgZOD/CugQ0qFDyIAOIQMHFbBkHBTqW7oJxLdk+uA+BeKgUN/STSC+JdMH9ykQB4X6lm4C8S2ZPrhPgTgo1Ld0E4hvyfTBfdZAPJ/Pg0uN6Xb11zdov/v4qP8YVf7M0uojEGFGKMECoUNskBIIgRCIvxXYW2hbw/YO3s5P49N2qjDkEHfT54fe7XcqSVASkNrb+Wl82k7xCsSuZNztBKQJp4QKBChAgpOA1N7OT+PTdoqXgLrbgTm9ZNBj2j6gVlBar01IOv9qwA1/D0EJnX3C0oRRPHTJbYGmeNv54/3NvlSevWFaT4d4j4gOER6hFDhLxu6/ipKAoy2xTQA5CM1PJebqkkr8f7xDpAkQCFKgfOzUIbafBqeAjnZQHSIsYXQ+LBkf5hBpjaf+7Qk+20F1CPg9lPbEC8ROARL07BNA8dCJT0uGQAjEW9elSyO1k6XTeAKa5p/+2EkBUDud+LadHIPiax0inZ/iFQj4+J2AIYHThM0+wRSvQAjEhhGBEIh7A5FabNo/tWQqGWe3p/tN+9/OIdINpP0F4r1iAlGWDB1iC9jwx870xKf9dYibO0Sa0Nn96c1oaqnkILP3c/b8tUOcHTCtJxCk0Pt2gQD9dIgOsMtH6xBdCmqHSE8Q9U8TmvYnuSi+dnw7P63ftgvETsE2YTSe2tuEtuMFQiA2CgiEQJwLBNV4sjh6b5DO385H4/f7ofjSF200fxrfj/nu9l/59gHSBknw0fNRPJQwiie9Y6T96QBOLxlpwkiwVPDR8wlE+eJGIN7/bOPHlQw6sXSiyPIIKJqf4iMHofjQgi/+NJbiG36HIMEpYSS4QGT/FZD0JkDqO4RAvJc4BT4tITQ/AaBDwO9qpgkhwSlhs9spvulAkGOcXbNpPYo3teC7JVggQgcQiK0Cw+8QJDCdWDphRHx7CR29flqC2vVJH2oXiJ1CbUJofNtOCW3bayBGn8h2Q+l4OsHkaLReqk8KTBvf8EtluuG0pJDgbbtADL5DCET2HoJOtA5x8t/bSBNC/cmh0gOzPBBtCRj9nJ8miNZPE0QliNY7W8/hd4izN0AJEogXSfC2vX7KEIi5Hz5RyWlLmg4R/sEXcqS2nY7zckCQIKmDUA2mE3G6gOGlOL1DpMC089clQyCyP2TbJowOWDu/QMAPm6YnlPq3CROI8NNLS8ZiTxl0QqgEUcJHz5/eaeiOQw5ydXtdMsjCUoEE4lokBAL+fIIOUQJ6tqXPdiCBCIEgAMLpHm0C7g4I6dHun+5QtH5dMgQiew9BCRGInUKtIDrExY+dOoQOQa53ansKJDkQ1WBaj8a3j+mj15/+aeepNDweDxKISgi992gTSHpQ/AQw7Y/WF4jwvYNApEhd3J9OGJ0gHWKr0O0eO4mv0TU6BSaNj4CjdlqvHT+8ZKQnlDZI7QKxO9HhN8BIXx1i8HsQugSm7ZhAgchevKQORgmjBNH4tJ3Wu33JSC293XArCI1v20fvj+48tB61Dy8ZAtE5GDmIQJS/4oYnopyfHGT0+gJRJmx0QugEpw5JQNEdKF0P9bjbTxvfTXA6kZQwSgDNT29KBSL82nx7AilhArFT6GzB0xNxdnypIxBwOkT54VMqYHrCqaQJRHjpI8FIcGqn+elEto5CDtYCmO4v7T/9PUQrQJsgEoQAo3YCjBwrjY/6t+0CEZYoAlyHsGRsDqVAXAxEasltwmh8atnkOFSSqKTG8XzaiykSmBLajo8TUP7giEDAi6k2oe14gbBkpAxs+hOAH1cyKrX+8TX71vJHC0wJpcdW2k+rXzp++mNnGhBdEklASpBAvM+IQITvIQjY0cC1ByodLxACsb3TjH7sTIlM+1NNphNK61HJSden9dJ40/jS9Yc7RBpA2j9NCN05RpeAdD8CUSomENmfjk7l1iF2iqWWTP3ThJCj0Xo0nuKpgaAFbF9LAYFYK1/ToxWI6RKvtYBArJWv6dEKxHSJ11pAINbK1/RoBWK6xGstIBBr5Wt6tAIxXeK1FhCItfI1PVqBmC7xWgsIxFr5mh6tQEyXeK0FBGKtfE2PViCmS7zWAgKxVr6mR/sLpui+/E5SFH0AAAAASUVORK5CYII=" >
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIQAAACECAYAAABRRIOnAAAGh0lEQVR4Xu2dy5LbSgxD4///6LmbLCK5ro9Oga1RtZEt+0UQBNmyRnn9/Pz8/Om/IvAXgVcJUS78i0AJUT4cECghSogSohz4fwSqEGVHFaIcqEKUAxcRaMm4CNS3DCshviXSF/0sIS4C9S3DSohvifRFP0uIi0B9y7AS4lsifdHPEuIiUN8yrIT4lkhf9DMmxOv1urjVzDB6feN8HhpPp0rXexo+6G/6PsTTHE4DeAYsXe9p+JQQ4QthJQRR6GR/WgakAaxChEV2OgB3B4Tct4Q/r/d0fN7wnu4hCGApQH9SQCmgdF6af/anhDjdMgjgEmL2Jfc0YaoQJwSIwFUImcLE0NWA0v7kjp1P/tiSQevdXZLGH0wRIBQgmm/ttF8JcUSohJA9EGW0JSytV4U4PUiiDCZ7FYIQqEIcELAZSvBWIUByLeApoHRroAdfFHCyp+efXp/Wu/3aWUIcfw0mwlAAab5NiBJi8W8xNmCrE4YItj0hLABpRtF+1PSWEIDg6gyjaxwF2NpLCLg2EqAlxGeELD6Ed0vGCYGWjJufQ1iG0rWQMmS6JFCNJ0JRyViNj11/+aNre6ASwiE2TbgSAvCvQjiCxm800XaUAWnA7P62JNH5aX+yT68/rhDkQGqnHuLp9tR/mk89Dc0vIeRvMSnhKCCpvYS4OaAlRNh0pYynmk019Gn2aTwIH7tfXDLshtPjbVNJBKFr73QApvFI1ysh4E/9LOHSgPz2/BKihDhwsIQoIWYJQTWZJNdKpL1W0f50a6Ce4en+W3xjhXg6ICWEo0QJId/fIEUhuwvP+2irkHa/EqKEmO0hLAPpnj+dAbZkTPtDPYjFg0p0fP70+xDxAeSf0tn9SgiHWFwy3Hbvo5czHr6S9zRFIjzIHsejCrH2Ax4tGScEUsm28+346RpOGUznowynW0yqeMtLBgFADtj5dnwJcUSghABFsxlZhQCNm85YqsnT+5UQVMRCAlBAaXsKOM2nEjVdQn57PcLj7XzTtwwbsDRA1uF0P6sYJYT8On4aoBLi8/cnLD7jTWUV4vNzDdt0UsLQercTgghgHSIH7Ho0niTdnsfiQQGl9dKebLyHoANTQGi+dZgApgCn56H5tgeh9Sw+6H/aVNKBS4hjCEqI8J1FmwFViOy3mbipJIWwASVJW13zSdFofzuf1luN3+09xGqHUkJOK0oJsfi5AylGCUEIOXtLRvjGVqow25eMtIum+bYE2YDReGufPi8pYlyypq+dFNDUPg0wZejTzltChO9EUkaXEEcExnuINKNofhXi83+tvV3JoICTZNL8VBHs+q7H59HkfwkBGBJAVFJWB4ApcJL0sITSfo8rGZSBFCCaX4X4TIkSQn60zBKOMtLaKSFIEWm/5YTAAyx+0rm6JFCAyP9pewkBiJYQjnJViLBJq0KcCEcZSPy0gFpJpPPR/rQfzSf/p+10XtovVgjaYLWdAp7ubwNuA2LPb8db/0sI2YMQwCUEIbTYvjxjfvkWZJ+bpHBXIaoQBwRiQtgamzI4lWTan9Ynf+nHOWun804rZAlxQryEIASGJZUYT3Z7XMro8360Pq1nFSDN8HT+W48y/cYUBTS1U8CoCaP9af0SQioEAUoBoYCmGTitCHY96186XuM9rRAlhPvLKSv5dnwJEX6qmDKSALYJYQNsx9N5l/cQFhA6MAFg7VbiqWew6xHhCD/yl/Ak+/i1k2o8HYjmp/bpAJI/d9uJUHSeEgL+Op0ymgC+215C3PwKnC0hJYRs6kjCqWZaO+1HASwhwucQFsC0R7CSSeez57GEsuelEhavt/o5BAFOGWsVwAJC5yshiOInuw0YLW8DQPvTfiXEEaHtbxklBCFQQnxEyCoGwW0VzO5v18fzfnsPQU0a9TgIsPxCTQlxQvTuHqKEaMloyfiAwPKmkiSV7GmNpPnTEj293mp83hRydQ9BDpGdAprOnw7g9HqpfzS/hJCP1tOehprS1YQvIYYfnJUQklIkkXI5HE4BooykWwWtb+3oEBDYzreP7peXDOuAHU8BKSHcO50lRFhSiJBxhsq/JbUJQAk4fu2kDVM7BcQCRE1darf+piU4JmR67bQOd/yzEYgV4tnu9XQWgRLCIrb5+BJi8wBb90oIi9jm40uIzQNs3SshLGKbjy8hNg+wda+EsIhtPr6E2DzA1r0SwiK2+fgSYvMAW/dKCIvY5uNLiM0DbN0rISxim48vITYPsHXvP3+ksvzl1DSlAAAAAElFTkSuQmCC" >
                 <td style="Margin:0;padding-top:10px;padding-bottom:15px;padding-left:20px;padding-right:20px;border-radius:10px 10px 0 0px;background-color:#FBAA68;background-position:left top;" bgcolor="#0b5394" align="left"> 
                               <table width="100%" cellspacing="0" cellpadding="0" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;"> 
                                 <tr style="border-collapse:collapse;"> 
@@ -197,6 +197,7 @@ console.log("Comienza:::"+modificado+":::::::::FUNCIONA MIERDA")
                               </table> </td>
         `
             };
+            transporter.use('compile', inlineBase64({cidPrefix: 'somePrefix_'}));
             transporter.sendMail(mailOptions, function (err, info) {
                 if (err)
                     console.log(err)
