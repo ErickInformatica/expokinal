@@ -3,6 +3,8 @@
 var express = require('express');
 var UserController = require('../controllers/userController');
 var CharlaController = require('../controllers/conferenciaController');
+var CorreoController = require('../controllers/correoController');
+
 var md_auth = require('../middlewares/autheticated');
 
 //SUBIR IMAGEN
@@ -33,4 +35,7 @@ api.put('/charla/check/:id',md_auth.ensureAuth ,CharlaController.confirmarEntrad
 api.get('/charla/list', CharlaController.listarCharlas);
 api.get('/charla/search/:id', CharlaController.buscarId);
 api.delete('/charla/delete/:id', CharlaController.eliminarCharla);
+
+api.post('/correo', md_auth.ensureAuth, CorreoController.correoRestablecerPassword);
+
 module.exports = api;

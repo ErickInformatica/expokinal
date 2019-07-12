@@ -6,7 +6,7 @@ var Producto = require('../models/productos')
 var jwt = require('../services/jwt');
 var path = require('path');
 var fs = require('fs');
-
+const nodemailer = require('nodemailer');
 
 function getProductos(req, res) {
     Producto.find().exec((err, productos)=>{
@@ -314,6 +314,7 @@ function editarUsuario(req, res) {
 }
 
 
+
 module.exports = {
     ejemplo,
     registrar,
@@ -326,5 +327,6 @@ module.exports = {
     agregarProducto,
     agregarProductoVendidoPorUsuario,
     ProductoVendido,
-    getProductos
+    getProductos,
+
 }
