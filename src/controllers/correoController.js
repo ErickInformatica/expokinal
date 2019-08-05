@@ -10,21 +10,21 @@ const nodemailer = require('nodemailer');
 
 function correoRestablecerPassword(req, res) {
     var params = req.body;
-    var userId=req.user.sub;
+    var userId = req.user.sub;
     var correoE;
     var password;
     var nombre;
-    User.findById({_id:userId},(err,usuarioEncontrado)=>{
-        if(err) return res.status(500).send({message:'No se ha podido encontrar la peticion'});
-        if(usuarioEncontrado) {
-            correoE=usuarioEncontrado.email;
-            password=usuarioEncontrado.password;
+    User.findById({ _id: userId }, (err, usuarioEncontrado) => {
+        if (err) return res.status(500).send({ message: 'No se ha podido encontrar la peticion' });
+        if (usuarioEncontrado) {
+            correoE = usuarioEncontrado.email;
+            password = usuarioEncontrado.password;
             nombre = usuarioEncontrado.nombre;
-            console.log(correoE,password);
-            
+            console.log(correoE, password);
+
             var transporter = nodemailer.createTransport({
                 service: "gmail",
-            
+
                 secure: false, // true for 465, false for other ports
                 auth: {
                     user: `noreplykinal@gmail.com`, // Cambialo por tu email
@@ -329,14 +329,14 @@ function correoRestablecerPassword(req, res) {
                </html>
         `
             };
-            transporter.sendMail(mailOptions, function (err, info) {
+            transporter.sendMail(mailOptions, function(err, info) {
                 if (err)
                     console.log(err)
                 else
                     console.log(info);
             });
-        }else{
-        return res.status(404).send({message:'No hay ningun usuario en existencia'});
+        } else {
+            return res.status(404).send({ message: 'No hay ningun usuario en existencia' });
         }
     });
 }
