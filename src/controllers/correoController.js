@@ -1,170 +1,15 @@
 'use strict'
 
-var Charla = require('../models/conferencia');
+var bcrypt = require('bcrypt-nodejs');
 var User = require('../models/user');
+var Producto = require('../models/productos')
+var jwt = require('../services/jwt');
+var path = require('path');
+var fs = require('fs');
 const nodemailer = require('nodemailer');
-var inlineBase64 = require('nodemailer-plugin-inline-base64');
 
-
-function registrarCharla(req, res) {
-    var charla = new Charla();
+function correoRestablecerPassword(req, res) {
     var params = req.body;
-
-    if (params.nombreCharla && params.descripcion && params.comunicador && params.salon && params.numeroAsiento && params.fecha) {
-        charla.nombreCharla = params.nombreCharla;
-        charla.descripcion = params.descripcion;
-        charla.comunicador = params.comunicador;
-        charla.salon = params.salon;
-        charla.numeroAsiento = params.numeroAsiento;
-        charla.fecha = params.fecha;
-        charla.capacidad = params.numeroAsiento;
-        charla.image = params.image;
-        charla.llegados = [];
-        charla.ocupados = [];
-        charla.confirmado = 0;
-        Charla.find({
-            $or: [
-                { nombreCharla: charla.nombreCharla }
-            ]
-        }).exec((err, charlas) => {
-
-            if (err) return res.status(500).send({ message: 'Error en la peticion de usuario' })
-
-            if (charla && charlas.length >= 1) {
-                return res.status(500).send({ message: 'el evento ya existe' });
-            } else {
-
-                charla.save((err, charlaGuardada) => {
-                    if (err) return res.status(500).send({ message: 'Error al guardar el evento' })
-
-                    if (charlaGuardada) {
-                        res.status(200).send({ charla: charlaGuardada })
-                    } else {
-                        res.status(404).send({ message: 'no se a podido registrar el evento' })
-                    }
-                })
-
-            }
-        })
-    } else {
-        res.status(200).send({
-            message: 'rellene los datos necesarios'
-        })
-    }
-}
-
-
-function editarCharla(req, res) {
-    var charlaId = req.params.id;
-    var params = req.body;
-    var conteo = 0;
-    var conteo2 = 0;
-    Charla.findById(charlaId, (err, enc) => {
-        for (let i = 0; i < enc.ocupados.length; i++) {
-            if (enc.ocupados[i] != null) {
-                conteo += 1
-            }
-        }
-        delete params.ocupados;
-        delete params.llegados;
-        params.capacidad = params.numeroAsiento - conteo;
-        Charla.findByIdAndUpdate(charlaId, params, { new: true }, (err, charlaActualizada) => {
-            if (err) return res.status(500).send({ message: 'error en la peticion' });
-
-            if (!charlaActualizada) return res.status(404).send({ message: 'no se a podido actualizar el evento' });
-
-            return res.status(200).send({ charla: charlaActualizada });
-        })
-    })
-}
-
-function eliminarCharla(req, res) {
-    var charlaId = req.params.id;
-    var params = req.body;
-
-    Charla.findByIdAndDelete(charlaId, (err, charlaEliminada) => {
-        if (err) return res.status(500).send({ message: 'error en la peticion' });
-
-        if (!charlaEliminada) return res.status(404).send({ message: 'no se a podido eliminar el evento' });
-
-        return res.status(200).send({ conferencia: charlaEliminada });
-    })
-}
-
-function listarCharlas(req, res) {
-
-
-    Charla.find((err, charlas) => {
-        if (err) return res.status(500).send({ message: 'error en la peticion' });
-
-        if (!charlas) return res.status(404).send({ message: 'no se a podido eliminar el evento' });
-
-        return res.status(200).send({ charlas: charlas });
-    })
-}
-
-function buscarId(req, res) {
-    var id = req.params.id;
-
-    Charla.findById(id, (err, enc) => {
-        if (err) return res.status(500).send({ message: 'error en la peticion' });
-
-        if (!enc) return res.status(404).send({ message: 'sin charlas' });
-
-        return res.status(200).send({ charla: enc });
-    })
-}
-
-function ocuparAsiento(req,res) {
-    
-    var charlaId = req.params.id;
-    var userId = req.user.sub
-
-
-    //SS
-    var params = req.body;
-    console.log("WACHA ESTO"+params.variable+"::Termina")
-
-     var recorrer = params.variable;
-     var recorrer2 = params.variable;
-       var posicion = recorrer.indexOf("src=");
-       var posicionFinal = recorrer2.indexOf("></div>");
-       
-// if (posicion == -1)
-//     console.log("posi"+posicion+"No estamos hablando de un gato");
-// else
-// console.log("posi"+posicion+"Este texto habla sobre un gato");
-
-//EXTRACCION DE CODIGO QR
-// var modificado = recorrer.slice(posicion+5, posicionFinal-1)
-// console.log("Comienza:::"+modificado+":::::::::termina")
-
-
-    // console.log("CONTROLLER"+docs)
-    // documento = docs;
-    Charla.findById(charlaId, (err,enc)=>{
-       
-        if (err) return res.status(500).send({message: 'error en la peticion'});
-        if(!enc) return res.status(404).send({message: 'la charla no existe'});
-        if(enc.capacidad == 0) return res.status(200).send({message: 'Evento lleno, por favor, busque otro'});
-
-        var nuevosOcupados = enc.ocupados
-        var nuevaCapacidad = enc.capacidad
-
-        for (let i = 0; i < nuevosOcupados.length+1; i++) {
-            if (nuevosOcupados[i] == userId) return res.status(200).send({message: 'ya esta registrado a este evento'});
-            if (i < nuevosOcupados.length+1) {
-                nuevosOcupados[i] = userId;
-                nuevaCapacidad = nuevaCapacidad - 1;
-                break;
-            }            
-        }
-        Charla.findByIdAndUpdate(charlaId, { $addToSet: { ocupados: userId }, $inc: { capacidad: -1 } }, { new: true }, (err, newOcupado) => {
-            if (err) return res.status(500).send({ message: 'error en la peticion' });
-            if(!newOcupado) return res.status(404).send({message: 'no se ha podido generar una inscripcion'});
-            
-//VER
-var params = req.body;
     var userId = req.user.sub;
     var correoE;
     var password;
@@ -176,17 +21,10 @@ var params = req.body;
             password = usuarioEncontrado.password;
             nombre = usuarioEncontrado.nombre;
             console.log(correoE, password);
-        }
-        res.status(200).send({message: 'inscripcion generada exitosamente'});
-    
-//VER
 
-
-            
-           
             var transporter = nodemailer.createTransport({
                 service: "gmail",
-            
+
                 secure: false, // true for 465, false for other ports
                 auth: {
                     user: `noreplykinal@gmail.com`, // Cambialo por tu email
@@ -195,172 +33,10 @@ var params = req.body;
             });
             const mailOptions = {
                 from: `"Kinal no reply" `,
-                to: `${correoE}`, // Cambia esta parte por el destinatario
+                to: `"${correoE}"`, // Cambia esta parte por el destinatario
                 subject: `Confirmacion`,
                 html: `
-                ${params.variable}
-        `
-            };
-            transporter.use('compile', inlineBase64({cidPrefix: 'somePrefix_'}));
-            transporter.sendMail(mailOptions, function (err, info) {
-                if (err)
-                    console.log(err)
-                else
-                    console.log(info);
-            });
-        })
-    })
-    })
-}
-
-function confirmarEntrada(req, res) {
-    var charlaId = req.params.id;
-    var userId = req.user.sub;
-    Charla.findById(charlaId, (err, enc) => {
-
-        if (err) return res.status(500).send({ message: 'error en la peticion' });
-        if (!enc) return res.status(404).send({ message: 'la charla no existe' });
-
-        for (let i = 0; i < enc.llegados.length; i++) {
-            if (enc.llegados[i] == userId) {
-                return res.status(200).send({ message: 'Ya marcaste entrada, no se puede cancelar entrada' });
-            }
-        }
-        Charla.findByIdAndUpdate(charlaId, { $inc: { confirmado: 1 }, $addToSet: { ocupados: userId } }, { new: true }, (err, newOcupado) => {
-            console.log(err)
-            if (err) return res.status(500).send({ message: 'error en la peticion' });
-
-            if (!newOcupado) return res.status(404).send({ message: 'error al confirmar asistencia' });
-
-            return res.status(200).send({ message: 'gracias por presentarse, pase' });
-
-        })
-    })
-}
-
-function cancelarEntrada(req, res) {
-    var charlaId = req.params.id;
-    var userId = req.user.sub;
-    Charla.findById(charlaId, (err, enc) => {
-
-        if (err) return res.status(500).send({ message: 'error en la peticion' });
-        if (!enc) return res.status(404).send({ message: 'la charla no existe' });
-
-        if (enc.ocupados.length != 0) {
-            for (let i = 0; i < enc.llegados.length; i++) {
-                if (enc.llegados[i] == userId) {
-                    return res.status(200).send({ message: 'Ya marcaste entrada, no se puede cancelar entrada' });
-                }
-            }
-
-            for (let i = 0; i < enc.ocupados.length; i++) {
-                if (i == enc.ocupados.length - 1 && enc.ocupados[i] != userId) {
-                    return res.status(200).send({ message: 'no estas registrado para este evento' });
-                }
-            }
-        } else {
-            if (enc.capacidad == 0) return res.status(200).send({ message: 'Evento vacio' });
-        }
-        Charla.findByIdAndUpdate(charlaId, { $pull: { ocupados: userId }, $inc: { capacidad: 1 } }, { new: true }, (err, newOcupado) => {
-            if (err) return res.status(500).send({ message: 'error en la peticion' });
-
-            if (!newOcupado) return res.status(404).send({ message: 'error al cancelar asistencia' });
-
-            return res.status(200).send({ message: 'Asistencia cancelada' });
-
-        })
-    })
-}
-var correosSelecionado;
-
-function notificacion(req, res) {
-    var charlaId = req.params.id;
-
-    Charla.findById(charlaId, (err, enc) => {
-        if (err) return res.status(500).send({ message: 'error en la peticion' });
-        if (!enc) return res.status(404).send({ message: 'la charla no existe' });
-        User.find({ _id: {$in: enc.ocupados} }, (err, encontrados) => {
-
-            if (err) return res.status(500).send({ message: 'error en la peticion' });
-            if (!enc) return res.status(404).send({ message: 'la charla no existe' });
-            
-            
-             
-            // var horaMeridiano = new Date(enc.fecha).getHours()-6
-            
-            var diaNotificacion = new Date()
-            var MostrarFecha =new Date(enc.fecha)
-    //VARIABLES DE TIEMPO        
-    var hora = 7;
-    var minuto = 10;
-    var momento = new Date(diaNotificacion.getFullYear(), diaNotificacion.getMonth(), diaNotificacion.getDate());
-    var diaEvento = new Date(MostrarFecha.getFullYear(), MostrarFecha.getMonth(), MostrarFecha.getDate(), MostrarFecha.getHours()+hora+6, MostrarFecha.getMinutes()+minuto);
-    
-    if (enc.confirmado>=1){ return res.status(404).send({ message: 'Usted ya ha programado una notificación anteriormente' });
-    }
-    else if(new Date(enc.fecha).toString()=="Invalid Date"){
-        return res.status(500).send({ message: "El formato de fecha es invalido"});
-
-    }        
-    else if(new Date(enc.fecha).getDate()+1 ==new Date().getDate()
-                    && new Date().getHours()>hora){
-                        return res.status(400).send({ message: "La conferencia fue dada el dia de hoy, ya no puedes notificar "});
-                }
-                 else if(momento>diaEvento){
-                     return res.status(400).send({ message:"El día de la conferencia ya ha pasado, no se puede notificar una fecha pasada"});  
-          }
-           else{
-           lanzarSiempreALaHora(hora,minuto,encontrados,new Date(enc.fecha),enc)
-        
-              
-                Charla.findByIdAndUpdate(charlaId, { $inc: { confirmado: 1 }}, { new: true }, (err, newOcupado) => {
-                    console.log(err)
-                    if (err) return res.status(500).send({ message: 'error en la peticion' });
-        
-                    if (!newOcupado) return res.status(404).send({ message: 'Todo esta vacio' });
-        
-                                    return res.status(200).send({ message:"Se notificara el dia: "+diaEvento,  arrayDePersonas: encontrados});
-
-        
-                })
-            }
-        })
-    })
-}
-
-
-
-function tarea(correos,datosConferencia) {
-    console.log('Se cumplio a las:', new Date());
-    var nombreCharla = datosConferencia.nombreCharla;
-    var salonCharla = datosConferencia.salon;
-    var fechaCharla = datosConferencia.fecha;
-    var comunicadorCharla = datosConferencia.comunicador;
-
-    for (var i=0; i< correos.length; i++){
-        JSON.stringify(correos[i])
-        correosSelecionado = correos[i]["email"];
-        var nombreUsuarioCorreo = correos[i]["nombre"];
-       console.log(correosSelecionado);
-       var transporter = nodemailer.createTransport({
-           service: "gmail",
-           pool: true,
-           host: 'smtp.gmail.com',
-           port: 465,
-           secure: true, // use SSL
-
-       secure: false, // true for 465, false for other ports
-       auth: {
-           user: `noreplykinal@gmail.com`, // Cambialo por tu email
-           pass: `encriptado2019` // Cambialo por tu password
-       }
-   });
-   const mailOptions = {
-       from: `"Kinal no reply" `,
-       to: `"${correosSelecionado}"`, // Cambia esta parte por el destinatario
-       subject: `Confirmacion`,
-       html: `
-       <html style="width:100%;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0;">
+                <html style="width:100%;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;padding:0;Margin:0;">
                 <head> 
                  <meta charset="UTF-8"> 
                  <meta content="width=device-width, initial-scale=1" name="viewport"> 
@@ -476,26 +152,23 @@ function tarea(correos,datosConferencia) {
                                  <td width="560" valign="top" align="center" style="padding:0;Margin:0;"> 
                                   <table style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-position:left top;" width="100%" cellspacing="0" cellpadding="0"> 
                                     <tr style="border-collapse:collapse;"> 
-                                     <td align="center" style="padding:0;Margin:0;padding-top:5px;padding-bottom:5px;"> <img style="width: 100px; height: 100px" src="https://images-expokinal2019.s3.amazonaws.com/notificacion+correo.png" alt style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" width="175"></td> 
+                                     <td align="center" style="padding:0;Margin:0;padding-top:5px;padding-bottom:5px;"> <img src="https://gbnwt.stripocdn.email/content/guids/CABINET_dd354a98a803b60e2f0411e893c82f56/images/23891556799905703.png" alt style="display:block;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;" width="175"></td> 
                                     </tr> 
                                     <tr style="border-collapse:collapse;"> 
-                                     <td align="center" style="padding:0;Margin:0;padding-top:15px;padding-bottom:15px;"> <h1 style="Margin:0;line-height:24px;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-size:20px;font-style:normal;font-weight:normal;color:#333333;"><strong><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">RECORDATORIO </font></font></font></font></strong></h1><h1 style="Margin:0;line-height:24px;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-size:20px;font-style:normal;font-weight:normal;color:#333333;"><strong><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">&nbsp;DE CONFERENCIA</font></font></font></font></strong></h1> </td> 
+                                     <td align="center" style="padding:0;Margin:0;padding-top:15px;padding-bottom:15px;"> <h1 style="Margin:0;line-height:24px;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-size:20px;font-style:normal;font-weight:normal;color:#333333;"><strong><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">¿HA OLVIDADO SU </font></font></font></font></strong></h1><h1 style="Margin:0;line-height:24px;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-size:20px;font-style:normal;font-weight:normal;color:#333333;"><strong><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">&nbsp;CONTRASEÑA?</font></font></font></font></strong></h1> </td> 
                                     </tr> 
                                     <tr style="border-collapse:collapse;"> 
-                                     <td align="left" style="padding:0;Margin:0;padding-left:40px;padding-right:40px;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:16px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:24px;color:#666666;text-align:center;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Un saludo ${nombreUsuarioCorreo}!</font></font></font></font></p> </td> 
+                                     <td align="left" style="padding:0;Margin:0;padding-left:40px;padding-right:40px;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:16px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:24px;color:#666666;text-align:center;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Hola, ${nombre}</font></font></font></font></p> </td> 
                                     </tr> 
                                     <tr style="border-collapse:collapse;"> 
-                                     <td align="left" style="padding:0;Margin:0;padding-right:35px;padding-left:40px;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:16px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:24px;color:#666666;text-align:center;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">El ${fechaCharla} tienes la conferencia ${nombreCharla} de <a href="https://expokinal.com">ExpoKinal</a> dada por ${comunicadorCharla} en el salón ${salonCharla} en las instalaciones de kinal.</font></font></font></font></p> </td> 
+                                     <td align="left" style="padding:0;Margin:0;padding-right:35px;padding-left:40px;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:16px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:24px;color:#666666;text-align:center;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Hubo una solicitud para cambiar su contraseña!</font></font></font></font></p> </td> 
                                     </tr> 
                                     <tr style="border-collapse:collapse;"> 
-                                     <td align="center" style="padding:0;Margin:0;padding-top:25px;padding-left:40px;padding-right:40px;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:16px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:24px;color:#666666;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Si desea asigarse a más conferencias</font></font></font><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"> precione el botón de abajo para hacerlo.</font></font></font></font></p> </td> 
+                                     <td align="center" style="padding:0;Margin:0;padding-top:25px;padding-left:40px;padding-right:40px;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:16px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:24px;color:#666666;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Si no hizo esta solicitud, simplemente ignore este correo electrónico. </font></font></font><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">De lo contrario, haga clic en el botón de abajo para cambiar su contraseña:</font></font></font></font></p> </td> 
                                     </tr> 
                                     <tr style="border-collapse:collapse;"> 
-                                     <td align="center" style="Margin:0;padding-left:10px;padding-right:10px;padding-top:40px;padding-bottom:40px;"> <span class="es-button-border" style="border-style:solid;border-color:#3D5CA3;background:#FFFFFF;border-width:2px;display:inline-block;border-radius:10px;width:auto;"> <a href="https://expokinal.com" class="es-button" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-size:14px;color:#3D5CA3;border-style:solid;border-color:#FFFFFF;border-width:15px 20px 15px 20px;display:inline-block;background:#FFFFFF;border-radius:10px;font-weight:bold;font-style:normal;line-height:17px;width:auto;text-align:center;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">EXPOKINAL.COM</font></font></font></font></a> </span> </td> 
-                                    </tr>
-                                    <tr style="border-collapse:collapse;"> 
-                                     <td align="center" style="padding:0;Margin:0;padding-top:25px;padding-left:40px;padding-right:40px;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:16px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:24px;color:#666666;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Si no hizo esta solicitud, </font></font></font><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"> simplemente ignore este correo electrónico. </font></font></font></font></p> </td> 
-                                    </tr>  
+                                     <td align="center" style="Margin:0;padding-left:10px;padding-right:10px;padding-top:40px;padding-bottom:40px;"> <span class="es-button-border" style="border-style:solid;border-color:#3D5CA3;background:#FFFFFF;border-width:2px;display:inline-block;border-radius:10px;width:auto;"> <a href="https://viewstripo.email/" class="es-button" target="_blank" style="mso-style-priority:100 !important;text-decoration:none;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:arial, 'helvetica neue', helvetica, sans-serif;font-size:14px;color:#3D5CA3;border-style:solid;border-color:#FFFFFF;border-width:15px 20px 15px 20px;display:inline-block;background:#FFFFFF;border-radius:10px;font-weight:bold;font-style:normal;line-height:17px;width:auto;text-align:center;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">RESTABLECER LA CONTRASEÑA</font></font></font></font></a> </span> </td> 
+                                    </tr> 
                                   </table> </td> 
                                 </tr> 
                               </table> </td> 
@@ -620,7 +293,7 @@ function tarea(correos,datosConferencia) {
                                  <td width="560" valign="top" align="center" style="padding:0;Margin:0;"> 
                                   <table width="100%" cellspacing="0" cellpadding="0" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;"> 
                                     <tr style="border-collapse:collapse;"> 
-                                     <td align="center" style="padding:0;Margin:0;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:12px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:18px;color:#666666;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Este boletín se envió a <font>${correosSelecionado}</font> desde el nombre de la compañía porque se suscribe. </font></font></font><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Si no desea recibir este correo electrónico, puede </font></font></font></font><a target="_blank" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;font-size:12px;text-decoration:underline;color:#333333;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">darse de baja aquí</font></font></font></font></a><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"> .</font></font></font></font></p> </td> 
+                                     <td align="center" style="padding:0;Margin:0;"> <p style="Margin:0;-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-size:12px;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;line-height:18px;color:#666666;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Este boletín diario se envió a <font>${correoE}</font> desde el nombre de la compañía porque se suscribe. </font></font></font><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">Si no desea recibir este correo electrónico, puede </font></font></font></font><a target="_blank" style="-webkit-text-size-adjust:none;-ms-text-size-adjust:none;mso-line-height-rule:exactly;font-family:helvetica, 'helvetica neue', arial, verdana, sans-serif;font-size:12px;text-decoration:underline;color:#333333;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;">darse de baja aquí</font></font></font></font></a><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"><font style="vertical-align:inherit;"> .</font></font></font></font></p> </td> 
                                     </tr> 
                                   </table> </td> 
                                 </tr> 
@@ -654,50 +327,20 @@ function tarea(correos,datosConferencia) {
                  </div>  
                 </body>
                </html>
-           `
-           };
-          transporter.sendMail(mailOptions, function (err, info) {
-           if (err)
-           console.log(err)
-           else
-           console.log(info);
-           });
-      }
+        `
+            };
+            transporter.sendMail(mailOptions, function(err, info) {
+                if (err)
+                    console.log(err)
+                else
+                    console.log(info);
+            });
+        } else {
+            return res.status(404).send({ message: 'No hay ningun usuario en existencia' });
+        }
+    });
 }
-
-
-
-function lanzarSiempreALaHora(hora, minutos, correos, fechaEvento, datosConferencia) {
-    var ahora = new Date();
-    var diaNotificacion = new Date(fechaEvento)
-    console.log('HOY::', ahora);
-    var momento = new Date(diaNotificacion.getFullYear(), diaNotificacion.getMonth(), diaNotificacion.getDate(), hora, minutos);
-    console.log("MOMENTO:::  "+momento.getTime())
-    console.log("MOMENTO:::  "+momento)
-    console.log("MOMENTO:::  "+ahora.getTime())
-    if (momento <= ahora) { // la hora era anterior a la hora actual, debo sumar un día
-        momento = new Date(momento.getTime() + 1000 * 60 * 60 * 24);
-        console.log("Agrega tiempo")
-    }
-    console.log('para ser ejecutado en', momento, momento.getTime() - ahora.getTime());
-
-    setTimeout(function() {
-        tarea(correos,datosConferencia);
-
-    }, momento.getTime() - ahora.getTime());
-}
-
-// lanzarSiempreALaHora(21, 10, tarea);
 
 module.exports = {
-    registrarCharla,
-    editarCharla,
-    listarCharlas,
-    eliminarCharla,
-    buscarId,
-    ocuparAsiento,
-    confirmarEntrada,
-    cancelarEntrada,
-    notificacion,
-    lanzarSiempreALaHora
+    correoRestablecerPassword
 }
